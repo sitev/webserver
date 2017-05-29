@@ -1,2 +1,2 @@
 # webserver
-Simple webserver written in C++
+Crossplatform C++ WebServer class library
