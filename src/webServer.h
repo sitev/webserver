@@ -1,6 +1,6 @@
 #pragma once
 
-#include "cj.h"
+#include "core.h"
 
 #define LOCALHOST "sitev.ru"
 

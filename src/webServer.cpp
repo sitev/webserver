@@ -1,8 +1,9 @@
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "cj.h"
+#include "core.h"
+using namespace core;
 #include "network.h"
-using namespace cj;
+using namespace network;
 
 #include <sys/stat.h>
 
@@ -609,7 +610,7 @@ void WebServerHandler::step(HttpRequest &request, HttpResponse &response) {
 //--------------------------------------------------------------------------------------------------
 
 WebServer::WebServer(int port) {
-	ss = new cj::ServerSocket();
+	ss = new ServerSocket();
 	socketPort = port;
 	LOGGER_SCREEN("create WebServer, port = " + (String)port);
 }
