@@ -5,10 +5,7 @@ using namespace core;
 #include "network.h"
 using namespace network;
 
-#include <sys/stat.h>
-
-//#include <sys/epoll.h>
-#include <signal.h>
+//#include <sys/stat.h>
 
 #include "webserver.h"
 
@@ -531,9 +528,7 @@ void WebServerHandler::internalStep(HttpRequest &request, HttpResponse &response
 			request.header.fileExt = "html";
 		}
 		string fn = "/var/www/" + host + "/" + fn1;
-		int ret;
-		struct stat buf;
-		if ((ret = stat(fn.c_str(), &buf)) != 0) {
+		if (!fstream(fn.c_str()).good()) {
 			fn = "/var/www/common/" + fn1;
 		}
 
