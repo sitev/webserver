@@ -11,6 +11,95 @@ using namespace network;
 
 namespace webserver {
 
+	//--------------------------------------------------------------------------------------------------
+	//----------          ParamMap          -------------------------------------------------------
+	//--------------------------------------------------------------------------------------------------
+
+	ParamMap::ParamMap() {
+	}
+
+	ParamMap::~ParamMap() {
+	}
+
+	void ParamMap::add(String name, String value) {
+		add(name.to_string(), value.to_string());
+	}
+
+	void ParamMap::insert(String name, String value) {
+		insert(name.to_string(), value.to_string());
+	}
+
+	void ParamMap::clear() {
+		pars.clear();
+	}
+	int ParamMap::getCount() {
+		return pars.size();
+	}
+	bool ParamMap::parse(String s) {
+		return true;
+	}
+
+	String ParamMap::getValue(String name) {
+		return getValue_s(name.to_string());
+	}
+
+	String ParamMap::getName(int index) {
+		auto iter = pars.begin();
+		for (int i = 0; i < index; i++) iter++;
+		return iter->first;
+	}
+
+	String ParamMap::getValue(int index) {
+		return getValue_s(index);
+	}
+
+	void ParamMap::add(string name, string value) {
+		ParamItem *pi = new ParamItem();
+		pi->value = value;
+		pars.insert(std::pair<string, ParamItem*>(name, pi));
+	}
+	void ParamMap::insert(string name, string value) {
+		ParamItem *pi = new ParamItem();
+		pi->value = value;
+		pars.insert(std::pair<string, ParamItem*>(name, pi));
+	}
+	string ParamMap::getValue_s(string name) {
+		ParamItem *pi = pars[name];
+		if (!pi) return "";
+		return pi->value;
+	}
+	string ParamMap::getName_s(int index) {
+		auto iter = pars.begin();
+		for (int i = 0; i < index; i++) iter++;
+		return iter->first;
+	}
+	string ParamMap::getValue_s(int index) {
+		auto iter = pars.begin();
+		for (int i = 0; i < index; i++) iter++;
+		ParamItem *pi = iter->second;
+		if (!pi) return "";
+		return pi->value;
+	}
+
+	void ParamMap::add(string name, Memory &memory) {
+		ParamItem *pi = new ParamItem();
+		pi->isObject = true;
+		pi->memory.write(memory.data, memory.getSize());
+		pars.insert(std::pair<string, ParamItem*>(name, pi));
+	}
+
+	void ParamMap::getObject(string name, Memory &memory) {
+		ParamItem *pi = pars[name];
+		if (!pi) return;
+		memory = pars[name]->memory;
+	}
+
+	bool ParamMap::isObject(string name) {
+		ParamItem *pi = pars[name];
+		if (!pi) return false;
+		return pi->isObject;
+	}
+
 //--------------------------------------------------------------------------------------------------
 //----------          class RequestHeader          -------------------------------------------------
 //--------------------------------------------------------------------------------------------------
@@ -76,14 +165,19 @@ bool RequestHeader::parse(Memory &request) {
 	while (true) {
 		pos1 = request.getPos();
 		pos2 = find(request, ":");
+		request.setPos(pos1);
+		int pos3 = find(request, "\r\n");
+
 		if (pos2 < 0) {
 			request.setPos(pos1);
 			int pos3 = find(request, "\r\n");
 			break;
 		}
-		int pos3 = find(request, "\r\n");
+		if (pos3 <= 0) 
+			break;
+		if (pos2 > pos3) 
+			break;
 
-		if (pos3 <= 0) break;
 		string name = substr(request, pos1, pos2 - pos1);
 		string value = substr(request, pos2 + 2, pos3 - pos2 - 2);
 		add(name, value);
@@ -109,15 +203,29 @@ bool RequestHeader::parse(Memory &request) {
 
 void RequestHeader::parsePOSTParams(Memory &memory) {
 	int pos = memory.getPos();
+
+	int count = this->getCount();
+	string contype = this->getValue_s("Content-Type");
+	int pos1 = contype.find("; ");
+	string s1 = contype.substr(0, pos1);
+	string s2 = contype.substr(pos1 + 2);
+	if (s1 == "multipart/form-data") {
+		int pos2 = s2.find("=");
+		string boundary = s2.substr(pos2 + 1);
+		parseParamsMultipart(memory, boundary);
+		return;
+	}
+
 	string sParams = substr(memory, pos, memory.getSize() - pos);
 	string sDecode = sParams;
+
 	parseParams(sDecode, ptPOST);
 }
 
 
 
 bool RequestHeader::parseParams(String sParams, ParamType pt) {
-	ParamList *params;
+	ParamMap *params;
 	if (pt == ptGET) params = &GET;
 	else if (pt == ptPOST) 
 		params = &POST;
@@ -191,6 +299,49 @@ bool RequestHeader::parseParams(String sParams, ParamType pt) {
 	return true;
 }
 
+void RequestHeader::parseParamsMultipart(Memory &memory, string boundary) {
+	ParamMap *params = &POST;
+	int pos = memory.getPos();
+	int size = memory.getSize();
+
+	//File *f = new File((String)"c:\\temp\\fff.fff", "wb");
+	//f->write(memory.data, size);
+	//delete f;
+
+	int len = boundary.length();
+	int pos1 = find(memory, boundary);
+	while (true) {
+//		int pos1 = find(memory, boundary + "--");
+//		if (pos1 <= 0) return;
+		char ch;
+		memory.readChar(ch);
+		if (ch == '-') {
+			memory.readChar(ch);
+			if (ch == '-') return;
+		}
+		int pos2 = find(memory, "name=\"");
+		int pos3 = find(memory, "\"");
+		string name = substr(memory, pos2 + 6, pos3 - pos2 - 6);
+
+		memory.readChar(ch);
+		if (ch == ';') {
+			int pos4 = find(memory, "\r\n\r\n");
+			int pos5 = find(memory, "\r\n--" + boundary);
+			Memory m;
+			char *p = memory.data;
+			p += pos4 + 4;
+			m.write(p, pos5 - pos4 - 4);
+			params->add(name, m);
+		}
+		else {
+			int pos4 = find(memory, "\n\r\n");
+			int pos5 = find(memory, "\r\n--" + boundary);
+
+			string value = substr(memory, pos4 + 3, pos5 - pos4 - 3);
+			params->add(name, value);
+		}
+	}
+}
 
 bool RequestHeader::isFile(string s, string &fileExt) {
 	int pos = s.find_last_of('.');
@@ -235,11 +386,13 @@ int RequestHeader::find(Memory &request, string s) {
 	int len = s.length();
 	if (len <= 0) return -1;
 	bool flag = false;
+	int save_pos;
 	while (!request.eof()) {
 		if (!flag) {
 			flag = true;
 			if (find(request, s[0]) < 0) flag = false;
 			index = 1;
+			if (flag) save_pos = request.getPos();
 		}
 		else {
 			char ch;
@@ -249,6 +402,7 @@ int RequestHeader::find(Memory &request, string s) {
 			if (ch != a) {
 				flag = false;
 				index = 0;
+				request.setPos(save_pos);
 			}
 		}
 		if (len <= index) {
@@ -366,6 +520,18 @@ string RequestHeader::htmlEntitiesDecode(string s) {
 //----------          class HttpRequest          ---------------------------------------------------
 //--------------------------------------------------------------------------------------------------
 
+String HttpRequest::GET(String name) {
+	return header.GET.getValue(name);
+}
+
+String HttpRequest::POST(String name) {
+	return header.POST.getValue(name);
+}
+
+String HttpRequest::COOKIE(String name) {
+	return header.COOKIE.getValue(name);
+}
+
 void HttpRequest::parse() {
 	LOGGER_TRACE("Start parse");
 
@@ -436,7 +602,10 @@ void WebServerHandler::threadStep(Socket *socket) {
 			while (true) {
 				application->g_mutex.lock();
 				recvMemory(socket, request.memory);
+				int size = request.memory.getSize();
+				int pos = request.memory.getPos();
 				bool flag = check2CRLF(request.memory);
+				pos = request.memory.getPos();
 				application->g_mutex.unlock();
 				if (flag) break;
 				usleep(1000);

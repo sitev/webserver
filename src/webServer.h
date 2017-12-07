@@ -8,11 +8,45 @@ namespace webserver {
 
 enum ParamType {ptGET, ptPOST, ptCOOKIE};
 
+class ParamItem {
+public:
+	bool isObject = false;
+	string value;
+	Memory memory;
+};
+
+class ParamMap : public Object {
+public:
+	map<string, ParamItem*> pars;
+	ParamMap();
+	virtual ~ParamMap();
+
+	virtual void add(String name, String value);
+	virtual void insert(String name, String value);
+	virtual void clear();
+	virtual int getCount();
+	virtual bool parse(String s);
+	virtual String getValue(String name);
+	virtual String getName(int index);
+	virtual String getValue(int index);
+
+	virtual void add(string name, string value);
+	virtual void insert(string name, string value);
+	virtual string getValue_s(string name);
+	virtual string getName_s(int index);
+	virtual string getValue_s(int index);
+
+	virtual void add(string name, Memory &memory);
+	virtual void getObject(string name, Memory &memory);
+	virtual bool isObject(string name);
+};
+
+
 class RequestHeader : public ParamList {
 public:
-	ParamList GET;
-	ParamList POST;
-	ParamList COOKIE;
+	ParamMap GET;
+	ParamMap POST;
+	ParamMap COOKIE;
 	bool isFileFlag;
 	string fileExt;
 	RequestHeader();
@@ -20,6 +54,8 @@ public:
 	virtual void parsePOSTParams(Memory &memory);
 private:
 	virtual bool parseParams(String sParams, ParamType pt);
+	virtual void parseParamsMultipart(Memory &memory, string boundary);
+
 	virtual bool isFile(string s, string &fileExt);
 	virtual string urlDecode(string s);
 	virtual int find(Memory &request, char a);
@@ -38,6 +74,10 @@ public:
 	RequestHeader header;
 	HttpRequest() {}
 	virtual ~HttpRequest() {}
+
+	virtual String GET(String name);
+	virtual String POST(String name);
+	virtual String COOKIE(String name);
 
 	virtual void parse();
 };
