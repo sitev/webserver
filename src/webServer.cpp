@@ -4,6 +4,10 @@
 using namespace core;
 #include "network.h"
 using namespace network;
+#include "logger.h"
+using namespace logger;
+#include "application.h"
+using namespace app;
 
 //#include <sys/stat.h>
 
@@ -94,13 +98,29 @@ namespace webserver {
 		memory = pars[name]->memory;
 	}
 
+	void ParamMap::getObject(int index, Memory &memory) {
+		auto iter = pars.begin();
+		for (int i = 0; i < index; i++) iter++;
+		ParamItem *pi = iter->second;
+		if (!pi) return;
+		memory = pi->memory;
+	}
+
 	bool ParamMap::isObject(string name) {
 		ParamItem *pi = pars[name];
 		if (!pi) return false;
 		return pi->isObject;
 	}
 
-//--------------------------------------------------------------------------------------------------
+	bool ParamMap::isObject(int index) {
+		auto iter = pars.begin();
+		for (int i = 0; i < index; i++) iter++;
+		ParamItem *pi = iter->second;
+		if (!pi) return false;
+		return pi->isObject;
+	}
+
+	//--------------------------------------------------------------------------------------------------
 //----------          class RequestHeader          -------------------------------------------------
 //--------------------------------------------------------------------------------------------------
 
@@ -589,6 +609,7 @@ bool WebServerHandler::check2CRLF(Memory &memory) {
 void WebServerHandler::threadStep(Socket *socket) {
 	try {
 		LOGGER_OUT("MUTEX", "application->g_mutex.lock(); {");
+		
 		application->g_mutex.lock();
 		LOGGER_OUT("MUTEX", "application->g_mutex.lock(); }");
 		request.memory.setPos(0);
@@ -630,7 +651,7 @@ void WebServerHandler::threadStep(Socket *socket) {
 					usleep(1000);
 				}
 				application->g_mutex.lock();
-				if (method == "POST")
+				if (method == "POST" || method == "PUT")
 					request.header.parsePOSTParams(request.memory);
 				application->g_mutex.unlock();
 			}
@@ -827,7 +848,7 @@ void WebServer::step() {
 				index--;
 				ss->lstSocket.del(index);
 
-				LOGGER_DEBUG("----- i = " + (String)i + " size = " + (String)size);
+				///LOGGER_DEBUG("----- i = " + (String)i + " size = " + (String)size);
 
 				//std::thread *thr = new std::thread(&WebServer::threadStep, this, socket);
 				std::thread *thr = new std::thread(&WebServer::threadFunction, this, socket);

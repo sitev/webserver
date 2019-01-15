@@ -1,6 +1,7 @@
 #pragma once
 
-//#include "core.h"
+#include "application.h"
+using namespace app;
 
 #define LOCALHOST "sitev.ru"
 
@@ -38,7 +39,9 @@ public:
 
 	virtual void add(string name, Memory &memory);
 	virtual void getObject(string name, Memory &memory);
+	virtual void getObject(int index, Memory &memory);
 	virtual bool isObject(string name);
+	virtual bool isObject(int index);
 };
 
 

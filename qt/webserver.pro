@@ -6,6 +6,8 @@ CONFIG += staticlib
 
 #INCLUDEPATH += ../../core/src
 #INCLUDEPATH += ../../network/src
+INCLUDEPATH += ../../logger/src
+INCLUDEPATH += ../../application/src
 
 
 HEADERS += \
